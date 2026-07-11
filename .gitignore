@@ -5,7 +5,7 @@ venv/
 __pycache__/
 *.pyc
 
-# ChromaDB
+# Ignore ChromaDB
 database/chroma_db/
 
 # VS Code Settings
@@ -14,3 +14,4 @@ database/chroma_db/
 # OS Files
 .DS_Store
 Thumbs.db
+
