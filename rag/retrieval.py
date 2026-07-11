@@ -8,11 +8,7 @@ print("Connecting to ChromaDB...")
 client = chromadb.PersistentClient(path="./database/chroma_db")
 
 collection = client.get_collection("truthfulqa")
-
-
-def retrieve(query, k=3):
-
-    print("\nSearching...\n")
+def retrieve(query, k=1):
 
     query_embedding = model.encode(query).tolist()
 
@@ -21,14 +17,18 @@ def retrieve(query, k=3):
         n_results=k
     )
 
-    return results["documents"][0][0]
-
-
+    return {
+        "reference_answer": results["documents"][0][0],
+        "question": results["metadatas"][0][0]["question"],
+        "category": results["metadatas"][0][0]["category"]
+    }
 if __name__ == "__main__":
 
     question = input("Enter your question: ")
 
-    reference = retrieve(question)
+    result = retrieve(question)
 
-    print("\nRetrieved Reference Answer:\n")
-    print(reference)
+    print("\nRetrieved Data:\n")
+
+    print(result)
+

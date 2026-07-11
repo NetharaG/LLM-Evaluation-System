@@ -10,28 +10,17 @@ def load_truthfulqa(csv_path):
     print(f"Total Questions: {len(df)}")
 
     documents = []
-
     for _, row in df.iterrows():
-
-        content = f"""
-Question:
-{row['Question']}
-
-Reference Answer:
-{row['Best Answer']}
-
-Category:
-{row['Category']}
-"""
-
         documents.append(
-            Document(
-                page_content=content,
-                metadata={
-                    "category": row["Category"]
-                }
-            )
+        Document(
+            page_content=row["Best Answer"],
+
+            metadata={
+                "question": row["Question"],
+                "category": row["Category"]
+            }
         )
+    )
 
     return documents
 

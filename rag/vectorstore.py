@@ -16,10 +16,12 @@ chunks = chunk_documents(documents)
 print("Creating ChromaDB client...")
 
 client = chromadb.PersistentClient(path="./database/chroma_db")
+try:
+    client.delete_collection("truthfulqa")
+except:
+    pass
 
-collection = client.get_or_create_collection(
-    name="truthfulqa"
-)
+collection = client.create_collection("truthfulqa")
 
 print("Generating embeddings and storing...")
 
