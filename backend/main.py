@@ -1,22 +1,21 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from rag.retrieval import retrieve
 
-app = FastAPI(title="LLM Evaluation System")
+app = FastAPI()
 
 class EvaluationRequest(BaseModel):
     question: str
     ai_response: str
-    reference_answer: str = ""
-
-@app.get("/")
-def home():
-    return {"message": "LLM Evaluation Backend Running"}
 
 @app.post("/evaluate")
 def evaluate(data: EvaluationRequest):
+
+    reference = retrieve(data.question)
+
     return {
         "status": "success",
         "question": data.question,
         "ai_response": data.ai_response,
-        "reference_answer": data.reference_answer
+        "reference_answer": reference
     }
