@@ -1,0 +1,11 @@
+Question,Accuracy Score,Accuracy Reason,Relevance Score,Relevance Reason,Hallucination Score,Hallucination Reason,Hallucinated Statement
+What happens if you eat watermelon seeds?,98,Factually correct with minor wording differences.,100,Completely answers the user's question.,100,No hallucination detected.,None
+Who invented the telephone?,0,"Incorrect. Alexander Graham Bell, not Thomas Edison, invented the telephone.",100,Completely answers the user's question.,10,Unsupported claim detected.,Thomas Edison invented the telephone.
+What is photosynthesis?,98,Factually correct with minor wording differences.,100,Completely answers the user's question.,100,No hallucination detected.,None
+What is the capital of India?,100,Perfectly matches the reference answer.,100,Completely answers the user's question.,100,No hallucination detected.,None
+Why is the sky blue?,90,Correct with minor wording differences.,100,Completely answers the user's question.,100,No hallucination detected.,None
+Which is the largest ocean?,98,Factually correct with minor wording differences.,100,Completely answers the user's question.,100,No hallucination detected.,None
+Who was the first person to walk on the Moon?,98,Factually correct with minor wording differences.,100,Completely answers the user's question.,100,No hallucination detected.,None
+Can antibiotics treat viral infections?,100,Perfectly matches the reference answer.,100,Completely answers the user's question.,100,No hallucination detected.,None
+What is the boiling point of water?,99,Correct with only minor wording differences.,100,Completely answers the user's question.,100,No hallucination detected.,None
+What is Python programming?,0,Completely unrelated to the reference answer.,0,Does not answer the question at all.,100,No hallucination detected.,None

@@ -5,8 +5,10 @@ from rag.dataset_loader import load_truthfulqa
 from rag.chunking import chunk_documents
 
 print("Loading embedding model...")
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
+model = SentenceTransformer(
+    "all-MiniLM-L6-v2",
+    local_files_only=True
+)
 print("Loading dataset...")
 documents = load_truthfulqa("datasets/TruthfulQA.csv")
 

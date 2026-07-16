@@ -2,8 +2,10 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 
 print("Loading embedding model...")
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
+model = SentenceTransformer(
+    "all-MiniLM-L6-v2",
+    local_files_only=True
+)
 print("Connecting to ChromaDB...")
 client = chromadb.PersistentClient(path="./database/chroma_db")
 

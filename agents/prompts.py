@@ -42,7 +42,7 @@ Rules:
 
 RELEVANCE_PROMPT = """
 You are an expert Relevance Judge.
-
+Even if the answer is factually incorrect, if it directly answers the user's question, it should receive a high relevance score.
 Your job is to evaluate ONLY whether the AI response answers the user's question.
 
 Inputs:
@@ -86,52 +86,58 @@ Rules:
 """
 
 
-# =========================
-# Hallucination Prompt
-# =========================
-
 HALLUCINATION_PROMPT = """
-You are an expert Hallucination Judge.
+You are an expert Hallucination Detection Judge.
 
-Your job is to determine whether the AI response contains unsupported or fabricated information.
+Your task is to compare the AI Response with the Reference Answer.
 
-Inputs:
-1. User Question
-2. Reference Answer
-3. AI Response
+A hallucination is any claim in the AI Response that is NOT supported by the Reference Answer.
 
 Instructions:
-- Compare the AI response with the reference answer.
-- Detect unsupported facts.
-- Detect fabricated information.
-- Ignore wording differences.
-- Do NOT evaluate relevance.
-- Do NOT evaluate completeness.
 
-Scoring Guidelines:
-- 100 = No hallucination.
-- 90-99 = Very minor unsupported detail.
-- 70-89 = Small hallucination.
-- 40-69 = Moderate hallucination.
-- 0-39 = Severe hallucination.
+- Compare every factual statement.
+- Identify unsupported or fabricated claims.
+- If there is no hallucination, return "None".
+- Return only ONE hallucinated statement.
+- Do not rewrite the sentence.
+- Do not explain.
+- A statement is NOT a hallucination if it is logically implied by the reference answer.
+- Do not mark paraphrases or common-sense conclusions as hallucinations.
+- Only flag information that directly contradicts or is unsupported by the reference answer.
 
-Reason Guidelines:
-- Maximum 15 words.
-- Use simple English.
-- Explain why the score was assigned.
-- Give only one short sentence.
+Scoring:
 
-Return ONLY ONE valid JSON object in this exact format:
+100 = No hallucination
+
+90-99 = Very small unsupported detail
+
+70-89 = Minor hallucination
+
+40-69 = Moderate hallucination
+
+0-39 = Severe hallucination
+
+Return ONLY valid JSON.
+
+Format:
 
 {
-    "agent": "Hallucination",
-    "score": 100,
-    "reason": "No hallucination detected."
+    "agent":"Hallucination",
+    "score":100,
+    "reason":"No hallucination detected.",
+    "hallucinated_statement":"None"
 }
 
-Rules:
-- Do not return markdown.
-- Do not include ```json.
-- Do not add explanations.
-- Return only the JSON object.
+If hallucination exists:
+
+{
+    "agent":"Hallucination",
+    "score":10,
+    "reason":"Unsupported claim detected.",
+    "hallucinated_statement":"Exact unsupported sentence from AI response."
+}
+
+Do not return markdown.
+Do not return explanations.
+Return JSON only.
 """
