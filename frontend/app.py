@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd
 
 # ============================================
 # PAGE CONFIG
@@ -290,6 +291,12 @@ if evaluate:
             accuracy_reason = result["accuracy"]["reason"]
             relevance_reason = result["relevance"]["reason"]
             hallucination_reason = result["hallucination"]["reason"]
+            completeness_score = result["completeness"]["score"]
+            completeness_reason = result["completeness"]["reason"]
+            missing_points = result["completeness"]["missing_points"]
+            overall_score = result["verdict"]["overall_score"]
+            overall_verdict = result["verdict"]["verdict"]
+            overall_summary = result["verdict"]["summary"]
 
             hallucinated_statement = (
                 result["hallucination"]
@@ -297,14 +304,7 @@ if evaluate:
                      "No hallucinated information detected.")
             )
 
-            average_score = round(
-                (
-                    accuracy_score
-                    + relevance_score
-                    + hallucination_score
-                ) / 3,
-                2
-            )
+            average_score = overall_score
 
             css_class, overall_status = get_status(average_score)
             # ========================================
@@ -338,7 +338,7 @@ if evaluate:
 
             st.header("📊 Judge Agent Evaluation")
 
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
 
             with c1:
                 show_agent_card(
@@ -364,6 +364,13 @@ if evaluate:
                     hallucination_reason
                 )
 
+            with c4:
+                show_agent_card(
+                    "Completeness Agent",
+                    "📄",
+                    completeness_score,
+                    completeness_reason
+                )
             st.divider()
 
             # ========================================
@@ -371,8 +378,7 @@ if evaluate:
             # ========================================
 
             st.header("📈 Performance Dashboard")
-
-            p1, p2, p3 = st.columns(3)
+            p1, p2, p3, p4 = st.columns(4)
 
             with p1:
                 st.metric("Accuracy", f"{accuracy_score}/100")
@@ -382,6 +388,9 @@ if evaluate:
 
             with p3:
                 st.metric("Hallucination", f"{hallucination_score}/100")
+
+            with p4:
+                st.metric("Completeness", f"{completeness_score}/100")
 
             st.metric(
                 "⭐ Overall Average",
@@ -401,7 +410,11 @@ if evaluate:
                 <div class="{css_class}">
                     {overall_status}
                     <br><br>
-                    Overall Score : <b>{average_score}/100</b>
+                    Verdict : <b>{overall_verdict}</b>
+                    <br><br>
+                    Overall Score : <b>{overall_score}/100</b>
+                    <br><br>
+                    {overall_summary}
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -423,13 +436,21 @@ if evaluate:
 
             st.divider()
 
+            st.header("📄 Completeness Analysis")
+            st.info(completeness_reason)
+            if missing_points.strip().lower() != "none":
+                st.warning("Missing Points")
+                st.write(missing_points)
+            else:
+                st.success("No important information is missing.")
+
             # ========================================
             # VALIDATION STATUS
             # ========================================
 
             st.header("✔ Validation Status")
 
-            v1, v2, v3 = st.columns(3)
+            v1, v2, v3, v4 = st.columns(4)
 
             with v1:
 
@@ -452,6 +473,12 @@ if evaluate:
                 else:
                     st.error("Hallucination Detected")
 
+            with v4:
+                if completeness_score >= 90:
+                    st.success("Completeness Passed")
+                else:
+                    st.warning("Completeness Needs Improvement")
+
             st.divider()
 
             # ========================================
@@ -466,4 +493,106 @@ if evaluate:
 
             st.error("❌ Unable to connect to backend.")
 
+            st.exception(e)
+# ============================================
+# BATCH EVALUATION MODULE
+# ============================================
+
+st.divider()
+st.header("📂 Batch Evaluation Module")
+
+batch_file = st.file_uploader(
+    "Upload CSV File",
+    type=["csv"],
+    key="batch_csv"
+)
+
+batch_button = st.button(
+    "🚀 Evaluate Batch",
+    use_container_width=True
+)
+
+# ============================================
+# READ CSV
+# ============================================
+
+if batch_button:
+
+    if batch_file is None:
+        st.warning("⚠ Please upload a CSV file.")
+
+    else:
+
+        try:
+
+            # Read CSV
+            df = pd.read_csv(batch_file)
+
+            st.success("✅ CSV Uploaded Successfully")
+
+            st.subheader("Preview")
+
+            st.dataframe(df, use_container_width=True)
+
+            # Validate columns
+            required_columns = ["question", "ai_response"]
+
+            if not all(col in df.columns for col in required_columns):
+
+                st.error("CSV must contain columns: question, ai_response")
+                st.stop()
+
+            # ============================================
+            # SEND TO BACKEND
+            # ============================================
+
+            payload = {
+                "evaluations": []
+            }
+
+            for _, row in df.iterrows():
+
+                payload["evaluations"].append({
+                    "question": row["question"],
+                    "ai_response": row["ai_response"]
+                })
+
+            with st.spinner("Evaluating all responses..."):
+
+                response = requests.post(
+                    "http://127.0.0.1:8000/batch_evaluate",
+                    json=payload,
+                    timeout=600
+                )
+
+            if response.status_code != 200:
+
+                st.error("Batch evaluation failed.")
+                st.stop()
+
+            batch_result = response.json()
+
+            st.success("✅ Batch Evaluation Completed Successfully!")
+
+            # ============================================
+            # DISPLAY RESULTS
+            #  ============================================
+            results = []
+            for item in batch_result["results"]:
+                results.append({
+                    "Question": item["question"],
+                    "Accuracy": item["accuracy"]["score"],
+                    "Relevance": item["relevance"]["score"],
+                    "Hallucination": item["hallucination"]["score"],
+                    "Completeness": item["completeness"]["score"],
+                    "Overall Score": item["verdict"]["overall_score"],
+                    "Verdict": item["verdict"]["verdict"]
+                 })
+            result_df = pd.DataFrame(results)
+            st.subheader("📊 Batch Evaluation Results")
+            st.dataframe(result_df, use_container_width=True)
+
+        except Exception as e:
+
+            st.error("Unable to read CSV.")
             st.exception(e)
