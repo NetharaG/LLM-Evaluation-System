@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-
+from concurrent.futures import ThreadPoolExecutor
 from rag.retrieval import retrieve
 
 from agents.accuracy_agent import evaluate_accuracy
@@ -95,50 +95,69 @@ def evaluate(data: EvaluationRequest):
 
         "verdict": verdict
     }
-
 @app.post("/batch_evaluate")
 def batch_evaluate(data: BatchEvaluationRequest):
 
-    results = []
+    # ============================================
+    # FUNCTION TO EVALUATE ONE RESPONSE
+    # ============================================
 
-    for item in data.evaluations:
+    def evaluate_one(item):
 
+        # --------------------------------------------
         # Retrieve reference information
+        # --------------------------------------------
+
         retrieved = retrieve(item.question)
 
         reference_answer = retrieved["reference_answer"]
         retrieved_question = retrieved["question"]
         category = retrieved["category"]
 
-        # Run Accuracy Agent
+        # --------------------------------------------
+        # Accuracy Agent
+        # --------------------------------------------
+
         accuracy = evaluate_accuracy(
             retrieved_question,
             reference_answer,
             item.ai_response
         )
 
-        # Run Relevance Agent
+        # --------------------------------------------
+        # Relevance Agent
+        # --------------------------------------------
+
         relevance = evaluate_relevance(
             retrieved_question,
             reference_answer,
             item.ai_response
         )
 
-        # Run Hallucination Agent
+        # --------------------------------------------
+        # Hallucination Agent
+        # --------------------------------------------
+
         hallucination = evaluate_hallucination(
             retrieved_question,
             reference_answer,
             item.ai_response
         )
 
-        # Run Completeness Agent
+        # --------------------------------------------
+        # Completeness Agent
+        # --------------------------------------------
+
         completeness = evaluate_completeness(
             item.question,
             item.ai_response,
             reference_answer
         )
 
-        # Run Verdict Agent
+        # --------------------------------------------
+        # Verdict Agent
+        # --------------------------------------------
+
         verdict = evaluate_verdict(
             accuracy,
             relevance,
@@ -146,8 +165,11 @@ def batch_evaluate(data: BatchEvaluationRequest):
             completeness
         )
 
-        # Store result
-        results.append({
+        # --------------------------------------------
+        # Return result
+        # --------------------------------------------
+
+        return {
             "question": item.question,
             "ai_response": item.ai_response,
             "reference_answer": reference_answer,
@@ -157,10 +179,100 @@ def batch_evaluate(data: BatchEvaluationRequest):
             "hallucination": hallucination,
             "completeness": completeness,
             "verdict": verdict
-        })
+        }
+
+
+    # ============================================
+    # PARALLEL BATCH PROCESSING
+    # ============================================
+
+    results = []
+
+    # Maximum 4 responses evaluated simultaneously
+    with ThreadPoolExecutor(max_workers=4) as executor:
+
+        results = list(
+            executor.map(
+                evaluate_one,
+                data.evaluations
+            )
+        )
+
+
+    # ============================================
+    # RETURN RESPONSE
+    # ============================================
 
     return {
         "status": "success",
         "total_records": len(results),
         "results": results
     }
+# @app.post("/batch_evaluate")
+# def batch_evaluate(data: BatchEvaluationRequest):
+
+#     results = []
+
+#     for item in data.evaluations:
+
+#         # Retrieve reference information
+#         retrieved = retrieve(item.question)
+
+#         reference_answer = retrieved["reference_answer"]
+#         retrieved_question = retrieved["question"]
+#         category = retrieved["category"]
+
+#         # Run Accuracy Agent
+#         accuracy = evaluate_accuracy(
+#             retrieved_question,
+#             reference_answer,
+#             item.ai_response
+#         )
+
+#         # Run Relevance Agent
+#         relevance = evaluate_relevance(
+#             retrieved_question,
+#             reference_answer,
+#             item.ai_response
+#         )
+
+#         # Run Hallucination Agent
+#         hallucination = evaluate_hallucination(
+#             retrieved_question,
+#             reference_answer,
+#             item.ai_response
+#         )
+
+#         # Run Completeness Agent
+#         completeness = evaluate_completeness(
+#             item.question,
+#             item.ai_response,
+#             reference_answer
+#         )
+
+#         # Run Verdict Agent
+#         verdict = evaluate_verdict(
+#             accuracy,
+#             relevance,
+#             hallucination,
+#             completeness
+#         )
+
+#         # Store result
+#         results.append({
+#             "question": item.question,
+#             "ai_response": item.ai_response,
+#             "reference_answer": reference_answer,
+#             "category": category,
+#             "accuracy": accuracy,
+#             "relevance": relevance,
+#             "hallucination": hallucination,
+#             "completeness": completeness,
+#             "verdict": verdict
+#         })
+
+#     return {
+#         "status": "success",
+#         "total_records": len(results),
+#         "results": results
+#     }

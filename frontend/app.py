@@ -1,7 +1,24 @@
 import streamlit as st
 import requests
 import pandas as pd
+import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer
+)
+import sys
+import os
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from reports.pdf_report import generate_pdf
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 # ============================================
 # PAGE CONFIG
 # ============================================
@@ -189,6 +206,7 @@ def show_agent_card(title, icon, score, reason):
     )
 
     st.progress(score / 100)
+
 # ============================================
 # INPUT SECTION
 # ============================================
@@ -592,6 +610,420 @@ if batch_button:
             st.subheader("📊 Batch Evaluation Results")
             st.dataframe(result_df, use_container_width=True)
 
+            
+            # ======================================================
+            # DASHBOARD SUMMARY
+            # ======================================================
+            st.divider()
+            st.markdown("## 📊 Evaluation Dashboard")
+            
+            # ----------------------------
+            # Calculate Statistics
+            # ----------------------------
+            
+            total_evaluations = len(result_df)
+            
+            pass_count = len(result_df[result_df["Verdict"] == "Pass"])
+            
+            needs_improvement_count = len(
+                result_df[result_df["Verdict"] == "Needs Improvement"]
+            )
+            
+            fail_count = len(result_df[result_df["Verdict"] == "Fail"])
+            
+            avg_accuracy = round(result_df["Accuracy"].mean(), 2)
+            avg_relevance = round(result_df["Relevance"].mean(), 2)
+            avg_hallucination = round(result_df["Hallucination"].mean(), 2)
+            avg_completeness = round(result_df["Completeness"].mean(), 2)
+            avg_overall = round(result_df["Overall Score"].mean(), 2)
+            
+            # ----------------------------
+            # First Row
+            # ----------------------------
+            
+            c1, c2, c3, c4 = st.columns(4)
+            
+            with c1:
+                st.metric(
+                    label="📄 Total Evaluations",
+                    value=total_evaluations
+                )
+            
+            with c2:
+                st.metric(
+                    label="✅ Pass",
+                    value=pass_count
+                )
+            
+            with c3:
+                st.metric(
+                    label="🟡 Needs Improvement",
+                    value=needs_improvement_count
+                )
+            
+            with c4:
+                st.metric(
+                    label="❌ Fail",
+                    value=fail_count
+                )
+            
+            st.divider()
+            
+            # ----------------------------
+            # Second Row
+            # ----------------------------
+            
+            c5, c6, c7, c8, c9 = st.columns(5)
+            
+            with c5:
+                st.metric(
+                    "Accuracy",
+                    f"{avg_accuracy}"
+                )
+            
+            with c6:
+                st.metric(
+                    "Relevance",
+                    f"{avg_relevance}"
+                )
+            
+            with c7:
+                st.metric(
+                    "Hallucination",
+                    f"{avg_hallucination}"
+                )
+            
+            with c8:
+                st.metric(
+                    "Completeness",
+                    f"{avg_completeness}"
+                )
+            
+            with c9:
+                st.metric(
+                    "Overall Score",
+                    f"{avg_overall}"
+                )
+            
+            st.divider()
+            # ======================================================
+            # DASHBOARD CHARTS
+            # ======================================================
+            
+            st.markdown("## 📈 Dashboard Visualizations")
+            
+            # ----------------------------
+            # Data Preparation
+            # ----------------------------
+            
+            verdict_counts = (
+                result_df["Verdict"]
+                .value_counts()
+                .reset_index()
+            )
+            
+            verdict_counts.columns = ["Verdict", "Count"]
+            
+            score_df = pd.DataFrame({
+                "Agent": [
+                    "Accuracy",
+                    "Relevance",
+                    "Hallucination",
+                    "Completeness"
+                ],
+                "Average Score": [
+                    avg_accuracy,
+                    avg_relevance,
+                    avg_hallucination,
+                    avg_completeness
+                ]
+            })
+            
+            hallucination_df = pd.DataFrame({
+                "Status": [
+                    "No Hallucination",
+                    "Hallucination Found"
+                ],
+                "Count": [
+                    len(result_df[result_df["Hallucination"] >= 90]),
+                    len(result_df[result_df["Hallucination"] < 90])
+                ]
+            })
+            
+            trend_df = result_df.copy()
+            trend_df["Evaluation"] = range(1, len(trend_df)+1)
+            
+            # ======================================================
+            # FIRST ROW
+            # ======================================================
+            
+            left, right = st.columns(2)
+            
+            # ---------------------------------------------
+            # Verdict Distribution
+            # ---------------------------------------------
+            
+            with left:
+            
+                fig1 = px.bar(
+                    verdict_counts,
+                    x="Verdict",
+                    y="Count",
+                    color="Verdict",
+                    text="Count",
+                    title="📊 Verdict Distribution",
+                    color_discrete_map={
+                        "Pass": "#2ecc71",
+                        "Needs Improvement": "#f39c12",
+                        "Fail": "#e74c3c"
+                    }
+                )
+            
+                fig1.update_layout(
+                    template="plotly_white",
+                    height=420,
+                    title_x=0.25
+                )
+                fig1.write_image("reports/verdict_distribution.png")
+                st.plotly_chart(
+                    fig1,
+                    use_container_width=True
+                )
+            
+            # ---------------------------------------------
+            # Average Agent Scores
+            # ---------------------------------------------
+            
+            with right:
+            
+                fig2 = px.bar(
+                    score_df,
+                    x="Agent",
+                    y="Average Score",
+                    color="Agent",
+                    text="Average Score",
+                    title="📈 Average Agent Scores"
+                )
+            
+                fig2.update_layout(
+                    template="plotly_white",
+                    yaxis_range=[0,100],
+                    height=420,
+                    title_x=0.20
+                )
+                fig2.write_image("reports/average_scores.png")
+                st.plotly_chart(
+                    fig2,
+                    use_container_width=True
+                )
+            
+            # ======================================================
+            # SECOND ROW
+            # ======================================================
+            
+            left2, right2 = st.columns(2)
+            
+            # ---------------------------------------------
+            # Hallucination Frequency
+            # ---------------------------------------------
+            
+            with left2:
+            
+                fig3 = px.pie(
+                    hallucination_df,
+                    names="Status",
+                    values="Count",
+                    hole=0.55,
+                    title="🚨 Hallucination Frequency",
+                    color="Status",
+                    color_discrete_map={
+                        "No Hallucination":"#2ecc71",
+                        "Hallucination Found":"#e74c3c"
+                    }
+                )
+            
+                fig3.update_layout(
+                    height=420
+                )
+                fig3.write_image("reports/hallucination.png")
+                st.plotly_chart(
+                    fig3,
+                    use_container_width=True
+                )
+            
+            # ---------------------------------------------
+            # Quality Trend
+            # ---------------------------------------------
+            
+            with right2:
+            
+                fig4 = px.line(
+                    trend_df,
+                    x="Evaluation",
+                    y="Overall Score",
+                    markers=True,
+                    title="📈 Quality Trend"
+                )
+            
+                fig4.update_traces(
+                    line_width=4
+                )
+            
+                fig4.update_layout(
+                    template="plotly_white",
+                    yaxis_range=[0,100],
+                    height=420
+                )
+                fig4.write_image("reports/quality_trend.png")
+                st.plotly_chart(
+                    fig4,
+                    use_container_width=True
+                )
+            
+            st.divider()
+
+            # =====================================================
+            # PDF REPORT EXPORT
+            # =====================================================
+                                                                
+            st.divider()
+            st.header("📄 Export Evaluation Report")
+                                                                
+            pdf_file = generate_pdf(result_df)
+                                                                
+            with open(pdf_file, "rb") as pdf:
+                                                                
+                st.download_button(
+                label="📥 Download PDF Report",
+                data=pdf,
+                file_name="LLM_Evaluation_Report.pdf",
+                mime="application/pdf",
+                use_container_width=True
+                )                                                                                           
+            
+            # ======================================================
+            # BATCH INSIGHTS
+            # ======================================================
+            
+            st.markdown("## 📌 Batch Insights")
+            
+            best_response = result_df.loc[result_df["Overall Score"].idxmax()]
+            worst_response = result_df.loc[result_df["Overall Score"].idxmin()]
+            
+            left, right = st.columns(2)
+            
+            # ======================================================
+            # BEST RESPONSE
+            # ======================================================
+            
+            with left:
+            
+                st.success("🏆 Best Performing Response")
+            
+                st.write("**Question**")
+                st.info(best_response["Question"])
+            
+                st.metric(
+                    "Overall Score",
+                    best_response["Overall Score"]
+                )
+            
+                st.write("**Verdict**")
+                st.success(best_response["Verdict"])
+            
+            # ======================================================
+            # WORST RESPONSE
+            # ======================================================
+            
+            with right:
+            
+                st.error("⚠ Lowest Performing Response")
+            
+                st.write("**Question**")
+                st.warning(worst_response["Question"])
+            
+                st.metric(
+                    "Overall Score",
+                    worst_response["Overall Score"]
+                )
+            
+                st.write("**Verdict**")
+                st.warning(worst_response["Verdict"])
+            
+            st.divider()
+            
+            # ======================================================
+            # SUMMARY
+            # ======================================================
+            
+            st.markdown("## 📋 Batch Summary")
+            
+            summary = f"""
+            
+            Total Evaluations : {total_evaluations}
+            
+            Passed : {pass_count}
+            
+            Needs Improvement : {needs_improvement_count}
+            
+            Failed : {fail_count}
+            
+            Average Accuracy : {avg_accuracy}
+            
+            Average Relevance : {avg_relevance}
+            
+            Average Hallucination : {avg_hallucination}
+            
+            Average Completeness : {avg_completeness}
+            
+            Overall Average Score : {avg_overall}
+            
+            """
+            
+            st.info(summary)
+            
+            # ======================================================
+            # RECOMMENDATIONS
+            # ======================================================
+            
+            st.markdown("## 💡 Improvement Recommendations")
+            
+            recommendations = []
+            
+            if avg_accuracy < 90:
+                recommendations.append(
+                    "• Improve factual correctness of AI responses."
+                )
+            
+            if avg_relevance < 90:
+                recommendations.append(
+                    "• Improve relevance to user questions."
+                )
+            
+            if avg_hallucination < 90:
+                recommendations.append(
+                    "• Reduce hallucinated statements."
+                )
+            
+            if avg_completeness < 90:
+                recommendations.append(
+                    "• Improve completeness of answers."
+                )
+            
+            if len(recommendations) == 0:
+            
+                st.success(
+                    "🎉 Excellent! All evaluation dimensions are performing well."
+                )
+            
+            else:
+            
+                for rec in recommendations:
+            
+                    st.warning(rec)
+            
+            st.divider()
+            
         except Exception as e:
 
             st.error("Unable to read CSV.")
