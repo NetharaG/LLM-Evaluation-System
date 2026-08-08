@@ -1,14 +1,14 @@
-# Python Virtual Environment
-venv/
-
 # Python Cache
 __pycache__/
 *.pyc
 
-# Ignore ChromaDB
+# Virtual Environment
+venv/
+
+# ChromaDB
 database/chroma_db/
 
-# VS Code Settings
+# VS Code
 .vscode/
 
 # OS Files
