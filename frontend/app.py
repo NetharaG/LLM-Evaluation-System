@@ -275,90 +275,143 @@ if evaluate:
 
     else:
 
-        payload = {
-            "question": question,
-            "ai_response": ai_response
-        }
+        # ============================================
+        # PDF UPLOADED
+        # ============================================
 
         try:
 
-            with st.spinner("🔄 Evaluating using RAG and Judge Agents..."):
+            if uploaded_file is not None:
 
-                response = requests.post(
-                    "http://127.0.0.1:8000/evaluate",
-                    json=payload,
-                    timeout=120
-                )
+                files = {
+                    "reference_pdf": (
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
+                        "application/pdf"
+                    )
+                }
 
-            if response.status_code != 200:
-                st.error("Backend returned an error.")
-                st.stop()
+                data = {
+                    "question": question,
+                    "ai_response": ai_response
+                }
 
-            result = response.json()
+                with st.spinner(
+                    "📄 Processing PDF and evaluating response..."
+                ):
 
-            st.success("✅ Evaluation Completed Successfully!")
+                    response = requests.post(
+                        "http://127.0.0.1:8000/evaluate",
+                        data=data,
+                        files=files,
+                        timeout=300
+                    )
 
-            # ========================================
-            # EXTRACT VALUES
-            # ========================================
+            # ============================================
+            # NO PDF
+            # ============================================
 
-            accuracy_score = result["accuracy"]["score"]
-            relevance_score = result["relevance"]["score"]
-            hallucination_score = result["hallucination"]["score"]
+            else:
 
-            accuracy_reason = result["accuracy"]["reason"]
-            relevance_reason = result["relevance"]["reason"]
-            hallucination_reason = result["hallucination"]["reason"]
-            completeness_score = result["completeness"]["score"]
-            completeness_reason = result["completeness"]["reason"]
-            missing_points = result["completeness"]["missing_points"]
-            overall_score = result["verdict"]["overall_score"]
-            overall_verdict = result["verdict"]["verdict"]
-            overall_summary = result["verdict"]["summary"]
+                data = {
+                    "question": question,
+                    "ai_response": ai_response
+                }
 
-            hallucinated_statement = (
-                result["hallucination"]
-                .get("hallucinated_statement",
-                     "No hallucinated information detected.")
+                with st.spinner(
+                    "🔄 Evaluating using RAG and Judge Agents..."
+                ):
+
+                    response = requests.post(
+                        "http://127.0.0.1:8000/evaluate",
+                        data=data,
+                        timeout=300
+                    )
+
+        except Exception as e:
+
+            st.error("❌ Unable to connect to backend.")
+            st.exception(e)
+            st.stop()
+
+        # ============================================
+        # CHECK RESPONSE
+        # ============================================
+
+        if response.status_code != 200:
+
+            st.error("❌ Backend returned an error.")
+            st.code(response.text)
+            st.stop()
+
+        result = response.json()
+
+        st.success("✅ Evaluation Completed Successfully!")
+
+        # ========================================
+        # EXTRACT VALUES
+        # ========================================
+
+        accuracy_score = result["accuracy"]["score"]
+        relevance_score = result["relevance"]["score"]
+        hallucination_score = result["hallucination"]["score"]
+
+        accuracy_reason = result["accuracy"]["reason"]
+        relevance_reason = result["relevance"]["reason"]
+        hallucination_reason = result["hallucination"]["reason"]
+
+        completeness_score = result["completeness"]["score"]
+        completeness_reason = result["completeness"]["reason"]
+        missing_points = result["completeness"]["missing_points"]
+
+        overall_score = result["verdict"]["overall_score"]
+        overall_verdict = result["verdict"]["verdict"]
+        overall_summary = result["verdict"]["summary"]
+
+        hallucinated_statement = (
+            result["hallucination"].get(
+                "hallucinated_statement",
+                "No hallucinated information detected."
             )
+        )
 
-            average_score = overall_score
+        average_score = overall_score
 
-            css_class, overall_status = get_status(average_score)
-            # ========================================
-            # INPUT SUMMARY
-            # ========================================
+        css_class, overall_status = get_status(average_score)
+        # ========================================
+        # INPUT SUMMARY
+        # ========================================
 
-            st.divider()
-            st.header("📋 Evaluation Summary")
+        st.divider()
+        st.header("📋 Evaluation Summary")
 
-            col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-            with col1:
+        with col1:
                 st.markdown("### ❓ Question")
                 st.info(result["question"])
 
                 st.markdown("### 🤖 AI Response")
                 st.success(result["ai_response"])
 
-            with col2:
+        with col2:
                 st.markdown("### 📚 Retrieved Reference")
                 st.warning(result["reference_answer"])
 
                 st.markdown("### 🏷 Category")
                 st.write(result["category"])
 
-            st.divider()
+        st.divider()
 
             # ========================================
             # JUDGE AGENTS
             # ========================================
 
-            st.header("📊 Judge Agent Evaluation")
+        st.header("📊 Judge Agent Evaluation")
 
-            c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4 = st.columns(4)
 
-            with c1:
+        with c1:
                 show_agent_card(
                     "Accuracy Agent",
                     "✅",
@@ -366,7 +419,7 @@ if evaluate:
                     accuracy_reason
                 )
 
-            with c2:
+        with c2:
                 show_agent_card(
                     "Relevance Agent",
                     "🎯",
@@ -374,7 +427,7 @@ if evaluate:
                     relevance_reason
                 )
 
-            with c3:
+        with c3:
                 show_agent_card(
                     "Hallucination Agent",
                     "🚨",
@@ -382,48 +435,48 @@ if evaluate:
                     hallucination_reason
                 )
 
-            with c4:
+        with c4:
                 show_agent_card(
                     "Completeness Agent",
                     "📄",
                     completeness_score,
                     completeness_reason
                 )
-            st.divider()
+        st.divider()
 
             # ========================================
             # SCORE DASHBOARD
             # ========================================
 
-            st.header("📈 Performance Dashboard")
-            p1, p2, p3, p4 = st.columns(4)
+        st.header("📈 Performance Dashboard")
+        p1, p2, p3, p4 = st.columns(4)
 
-            with p1:
+        with p1:
                 st.metric("Accuracy", f"{accuracy_score}/100")
 
-            with p2:
+        with p2:
                 st.metric("Relevance", f"{relevance_score}/100")
 
-            with p3:
+        with p3:
                 st.metric("Hallucination", f"{hallucination_score}/100")
 
-            with p4:
+        with p4:
                 st.metric("Completeness", f"{completeness_score}/100")
 
-            st.metric(
+        st.metric(
                 "⭐ Overall Average",
                 f"{average_score}/100"
             )
 
-            st.divider()
+        st.divider()
 
             # ========================================
             # OVERALL STATUS
             # ========================================
 
-            st.header("📝 Overall Evaluation")
+        st.header("📝 Overall Evaluation")
 
-            st.markdown(
+        st.markdown(
                 f"""
                 <div class="{css_class}">
                     {overall_status}
@@ -438,80 +491,76 @@ if evaluate:
                 unsafe_allow_html=True
             )
 
-            st.divider()
+        st.divider()
 
             # ========================================
             # HALLUCINATION SECTION
             # ========================================
 
-            st.header("🚨 Hallucination Detection")
-            if hallucination_score >= 90:
+        st.header("🚨 Hallucination Detection")
+        if hallucination_score >= 90:
                 st.success("✅ No Hallucinated Statement Detected.")
-            else:
+        else:
                 st.error("⚠ Hallucination Detected")
                 st.write("### Unsupported Statement")
                 st.warning(hallucinated_statement)
 
-            st.divider()
+        st.divider()
 
-            st.header("📄 Completeness Analysis")
-            st.info(completeness_reason)
-            if missing_points.strip().lower() != "none":
+        st.header("📄 Completeness Analysis")
+        st.info(completeness_reason)
+        if missing_points.strip().lower() != "none":
                 st.warning("Missing Points")
                 st.write(missing_points)
-            else:
+        else:
                 st.success("No important information is missing.")
 
             # ========================================
             # VALIDATION STATUS
             # ========================================
 
-            st.header("✔ Validation Status")
+        st.header("✔ Validation Status")
 
-            v1, v2, v3, v4 = st.columns(4)
 
-            with v1:
+        v1, v2, v3, v4 = st.columns(4)
+
+        with v1:
 
                 if accuracy_score >= 90:
                     st.success("Accuracy Passed")
                 else:
                     st.warning("Accuracy Needs Improvement")
 
-            with v2:
+        with v2:
 
                 if relevance_score >= 90:
                     st.success("Relevance Passed")
                 else:
                     st.warning("Relevance Needs Improvement")
 
-            with v3:
+        with v3:
 
                 if hallucination_score >= 90:
                     st.success("Hallucination Passed")
                 else:
                     st.error("Hallucination Detected")
 
-            with v4:
+        with v4:
                 if completeness_score >= 90:
                     st.success("Completeness Passed")
                 else:
                     st.warning("Completeness Needs Improvement")
 
-            st.divider()
+        st.divider()
 
             # ========================================
             # RAW JSON
             # ========================================
 
-            with st.expander("📂 View Backend JSON"):
+        with st.expander("📂 View Backend JSON"):
 
                 st.json(result)
 
-        except Exception as e:
-
-            st.error("❌ Unable to connect to backend.")
-
-            st.exception(e)
 # ============================================
 # BATCH EVALUATION MODULE
 # ============================================

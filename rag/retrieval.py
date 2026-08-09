@@ -15,18 +15,35 @@ def retrieve(query, k=5):
     query_embedding = model.encode(query).tolist()
 
     results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=k
-    )
+    query_embeddings=[query_embedding],
+    n_results=k,
+    include=["documents", "metadatas", "distances"]
+)
 
     print("\n========== TOP RETRIEVED RESULTS ==========\n")
-
     for i in range(len(results["documents"][0])):
-        print(f"Result {i+1}")
-        print("Question :", results["metadatas"][0][i]["question"])
-        print("Category :", results["metadatas"][0][i]["category"])
-        print("Reference:", results["documents"][0][i])
+        print(f"Result {i + 1}")
+        
+        print("Distance :", results["distances"][0][i])
+        
+        print(
+                "Question :",
+                results["metadatas"][0][i]["question"]
+            )
+        
+        print(
+                "Category :",
+                results["metadatas"][0][i]["category"]
+            )
+        
+        print(
+                "Reference:",
+                results["documents"][0][i]
+            )
+        
         print("-" * 60)
+
+
 
     return {
         "reference_answer": results["documents"][0][0],
