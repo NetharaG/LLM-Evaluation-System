@@ -13,7 +13,7 @@ from reportlab.platypus import (
 )
 import sys
 import os
-
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from reports.pdf_report import generate_pdf
 from reportlab.lib import colors
@@ -301,7 +301,7 @@ if evaluate:
                 ):
 
                     response = requests.post(
-                        "http://127.0.0.1:8000/evaluate",
+                        f"{BACKEND_URL}/evaluate",
                         data=data,
                         files=files,
                         timeout=300
@@ -323,7 +323,7 @@ if evaluate:
                 ):
 
                     response = requests.post(
-                        "http://127.0.0.1:8000/evaluate",
+                        f"{BACKEND_URL}/evaluate",
                         data=data,
                         timeout=300
                     )
@@ -627,7 +627,7 @@ if batch_button:
             with st.spinner("Evaluating all responses..."):
 
                 response = requests.post(
-                    "http://127.0.0.1:8000/batch_evaluate",
+                    f"{BACKEND_URL}/batch_evaluate",
                     json=payload,
                     timeout=600
                 )
