@@ -837,7 +837,7 @@ if batch_button:
                     height=420,
                     title_x=0.25
                 )
-                fig1.write_image("reports/verdict_distribution.png")
+                # fig1.write_image("reports/verdict_distribution.png")
                 st.plotly_chart(
                     fig1,
                     use_container_width=True
@@ -864,7 +864,7 @@ if batch_button:
                     height=420,
                     title_x=0.20
                 )
-                fig2.write_image("reports/average_scores.png")
+                # fig2.write_image("reports/average_scores.png")
                 st.plotly_chart(
                     fig2,
                     use_container_width=True
@@ -898,7 +898,7 @@ if batch_button:
                 fig3.update_layout(
                     height=420
                 )
-                fig3.write_image("reports/hallucination.png")
+                # fig3.write_image("reports/hallucination.png")
                 st.plotly_chart(
                     fig3,
                     use_container_width=True
@@ -927,7 +927,7 @@ if batch_button:
                     yaxis_range=[0,100],
                     height=420
                 )
-                fig4.write_image("reports/quality_trend.png")
+                # fig4.write_image("reports/quality_trend.png")
                 st.plotly_chart(
                     fig4,
                     use_container_width=True
