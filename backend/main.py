@@ -425,6 +425,9 @@
 # #         "total_records": len(results),
 # #         "results": results
 # #     }
+from pypdf import PdfReader
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 from fastapi import FastAPI, UploadFile, File, Form
 from jsonschema.exceptions import relevance
@@ -439,9 +442,7 @@ from agents.hallucination_agent import evaluate_hallucination
 from agents.completeness_agent import evaluate_completeness
 from agents.verdict_agent import evaluate_verdict
 
-from pypdf import PdfReader
-from sentence_transformers import SentenceTransformer
-import numpy as np
+
 
 
 app = FastAPI(title="LLM Evaluation System")
@@ -451,14 +452,14 @@ app = FastAPI(title="LLM Evaluation System")
 # LOAD EMBEDDING MODEL FOR PDF RETRIEVAL
 # ============================================================
 
-print("Loading embedding model...")
+# print("Loading embedding model...")
 
-pdf_embedding_model = SentenceTransformer(
-    "all-MiniLM-L6-v2",
-    local_files_only=True
-)
+# pdf_embedding_model = SentenceTransformer(
+#     "all-MiniLM-L6-v2",
+#     local_files_only=True
+# )
 
-print("Embedding model loaded!")
+# print("Embedding model loaded!")
 
 
 # ============================================================
@@ -524,22 +525,100 @@ def chunk_text(text, chunk_size=500, overlap=100):
 # RETRIEVE REFERENCE FROM PDF
 # ============================================================
 
+# def retrieve_from_pdf(question, pdf_file):
+
+#     print("\nProcessing uploaded PDF...")
+
+#     # Extract PDF text
+#     text = extract_pdf_text(pdf_file)
+#     import re
+#     text = re.sub(r'\s+', ' ', text).strip()
+#     if not text.strip():
+#         raise ValueError(
+#             "The uploaded PDF does not contain readable text."
+#         )
+
+#     print("PDF text extracted.")
+
+#     # Create chunks
+#     chunks = chunk_text(text)
+
+#     print("Total PDF chunks:", len(chunks))
+
+#     if not chunks:
+#         raise ValueError(
+#             "No readable content was found in the PDF."
+#         )
+
+#     # Generate embeddings
+#     chunk_embeddings = pdf_embedding_model.encode(
+#         chunks,
+#         normalize_embeddings=True
+#     )
+
+#     # Question embedding
+#     question_embedding = pdf_embedding_model.encode(
+#         question,
+#         normalize_embeddings=True
+#     )
+
+#     # Cosine similarity
+#     similarities = np.dot(
+#         chunk_embeddings,
+#         question_embedding
+#     )
+
+#     # Best matching chunk
+#     best_index = int(np.argmax(similarities))
+
+#     best_chunk = chunks[best_index]
+
+#     best_score = float(similarities[best_index])
+
+#     print("\n========== PDF RETRIEVAL ==========")
+
+#     print("Question:", question)
+
+#     print("Similarity:", best_score)
+
+#     print("Reference:", best_chunk)
+
+#     print("-" * 60)
+
+#     return {
+#         "reference_answer": best_chunk,
+#         "question": question,
+#         "category": "Uploaded PDF"
+#     }
+# ============================================================
+# RETRIEVE REFERENCE FROM PDF
+# ============================================================
+
 def retrieve_from_pdf(question, pdf_file):
 
     print("\nProcessing uploaded PDF...")
 
+    # --------------------------------------------------------
     # Extract PDF text
+    # --------------------------------------------------------
+
     text = extract_pdf_text(pdf_file)
+
     import re
+
     text = re.sub(r'\s+', ' ', text).strip()
-    if not text.strip():
+
+    if not text:
         raise ValueError(
             "The uploaded PDF does not contain readable text."
         )
 
     print("PDF text extracted.")
 
+    # --------------------------------------------------------
     # Create chunks
+    # --------------------------------------------------------
+
     chunks = chunk_text(text)
 
     print("Total PDF chunks:", len(chunks))
@@ -549,26 +628,33 @@ def retrieve_from_pdf(question, pdf_file):
             "No readable content was found in the PDF."
         )
 
-    # Generate embeddings
-    chunk_embeddings = pdf_embedding_model.encode(
-        chunks,
-        normalize_embeddings=True
+    # --------------------------------------------------------
+    # TF-IDF retrieval
+    # --------------------------------------------------------
+
+    documents = chunks + [question]
+
+    vectorizer = TfidfVectorizer(
+        lowercase=True,
+        stop_words="english",
+        ngram_range=(1, 2)
     )
 
-    # Question embedding
-    question_embedding = pdf_embedding_model.encode(
-        question,
-        normalize_embeddings=True
-    )
+    vectors = vectorizer.fit_transform(documents)
 
-    # Cosine similarity
-    similarities = np.dot(
-        chunk_embeddings,
-        question_embedding
-    )
+    chunk_vectors = vectors[:-1]
+    question_vector = vectors[-1]
 
+    similarities = cosine_similarity(
+        question_vector,
+        chunk_vectors
+    )[0]
+
+    # --------------------------------------------------------
     # Best matching chunk
-    best_index = int(np.argmax(similarities))
+    # --------------------------------------------------------
+
+    best_index = int(similarities.argmax())
 
     best_chunk = chunks[best_index]
 
@@ -589,7 +675,6 @@ def retrieve_from_pdf(question, pdf_file):
         "question": question,
         "category": "Uploaded PDF"
     }
-
 
 # ============================================================
 # HOME
