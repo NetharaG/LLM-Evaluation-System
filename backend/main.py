@@ -427,6 +427,7 @@
 # #     }
 
 from fastapi import FastAPI, UploadFile, File, Form
+from jsonschema.exceptions import relevance
 from pydantic import BaseModel
 from concurrent.futures import ThreadPoolExecutor
 
@@ -692,7 +693,6 @@ async def evaluate(
             ai_response,
             reference_answer
         )
-
 
         # ====================================================
         # VERDICT AGENT
