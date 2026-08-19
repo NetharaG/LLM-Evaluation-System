@@ -1,430 +1,4 @@
-# # from fastapi import FastAPI
-# from fastapi import FastAPI, Form, UploadFile, File
-# from pydantic import BaseModel
-# from concurrent.futures import ThreadPoolExecutor
-# from rag.retrieval import retrieve
-
-# from agents.accuracy_agent import evaluate_accuracy
-# from agents.relevance_agent import evaluate_relevance
-# from agents.hallucination_agent import evaluate_hallucination
-# from agents.completeness_agent import evaluate_completeness
-# from agents.verdict_agent import evaluate_verdict
-# import os
-# from rag.pdf_reference import create_pdf_reference, retrieve_from_pdf
-# app = FastAPI(title="LLM Evaluation System")
-
-
-# class EvaluationRequest(BaseModel):
-#     question: str
-#     ai_response: str
-# class BatchEvaluationRequest(BaseModel):
-#     evaluations: list[EvaluationRequest]
-
-
-# @app.get("/")
-# def home():
-#     return {
-#         "message": "LLM Evaluation Backend Running"
-#     }
-
-
-# # @app.post("/evaluate")
-# # def evaluate(data: EvaluationRequest):
-
-# #     # Retrieve reference information
-# #     retrieved = retrieve(data.question)
-
-# #     reference_answer = retrieved["reference_answer"]
-# #     retrieved_question = retrieved["question"]
-# #     category = retrieved["category"]
-
-# #     # Run Accuracy Agent
-# #     accuracy = evaluate_accuracy(
-# #         retrieved_question,
-# #         reference_answer,
-# #         data.ai_response
-# #     )
-
-# #     # Run Relevance Agent
-# #     relevance = evaluate_relevance(
-# #         retrieved_question,
-# #         reference_answer,
-# #         data.ai_response
-# #     )
-
-# #     # Run Hallucination Agent
-# #     hallucination = evaluate_hallucination(
-# #         retrieved_question,
-# #         reference_answer,
-# #         data.ai_response
-# #     )
-
-# #     completeness = evaluate_completeness(
-# #         data.question,
-# #         data.ai_response,
-# #         reference_answer
-# #     )
-
-# #     verdict = evaluate_verdict(
-# #     accuracy,
-# #     relevance,
-# #     hallucination,
-# #     completeness
-# # )
-# #     print("Question:", data.question)
-# #     print("Reference:", reference_answer)
-# #     print("AI Response:", data.ai_response)
-# #     print("-" * 60)
-
-# #     return {
-# #         "status": "success",
-
-# #         "question": data.question,
-
-# #         "ai_response": data.ai_response,
-
-# #         "reference_answer": reference_answer,
-
-# #         "category": category,
-
-# #         "accuracy": accuracy,
-
-# #         "relevance": relevance,
-
-# #         "hallucination": hallucination,
-
-# #         "completeness": completeness,
-
-# #         "verdict": verdict
-# #     }
-# @app.post("/evaluate")
-# async def evaluate(
-#     question: str = Form(...),
-#     ai_response: str = Form(...),
-#     reference_pdf: UploadFile = File(None)
-# ):
-
-#     # ============================================
-#     # GET REFERENCE
-#     # ============================================
-
-#     if reference_pdf is not None:
-
-#         # ----------------------------------------
-#         # Save uploaded PDF temporarily
-#         # ----------------------------------------
-
-#         pdf_path = os.path.join(
-#             "database",
-#             reference_pdf.filename
-#         )
-
-#         os.makedirs(
-#             "database",
-#             exist_ok=True
-#         )
-
-#         contents = await reference_pdf.read()
-
-#         with open(pdf_path, "wb") as f:
-#             f.write(contents)
-
-#         # ----------------------------------------
-#         # Create PDF embeddings
-#         # ----------------------------------------
-
-#         create_pdf_reference(pdf_path)
-
-#         # ----------------------------------------
-#         # Retrieve from uploaded PDF
-#         # ----------------------------------------
-
-#         reference_answer = retrieve_from_pdf(
-#             question
-#         )
-
-#         retrieved_question = question
-
-#         category = "Uploaded PDF"
-
-#     else:
-
-#         # ----------------------------------------
-#         # EXISTING RAG DATASET
-#         # ----------------------------------------
-
-#         retrieved = retrieve(question)
-
-#         reference_answer = retrieved[
-#             "reference_answer"
-#         ]
-
-#         retrieved_question = retrieved[
-#             "question"
-#         ]
-
-#         category = retrieved[
-#             "category"
-#         ]
-
-#     # ============================================
-#     # ACCURACY
-#     # ============================================
-
-#     accuracy = evaluate_accuracy(
-#         retrieved_question,
-#         reference_answer,
-#         ai_response
-#     )
-
-#     # ============================================
-#     # RELEVANCE
-#     # ============================================
-
-#     relevance = evaluate_relevance(
-#         retrieved_question,
-#         reference_answer,
-#         ai_response
-#     )
-
-#     # ============================================
-#     # HALLUCINATION
-#     # ============================================
-
-#     hallucination = evaluate_hallucination(
-#         retrieved_question,
-#         reference_answer,
-#         ai_response
-#     )
-
-#     # ============================================
-#     # COMPLETENESS
-#     # ============================================
-
-#     completeness = evaluate_completeness(
-#         question,
-#         ai_response,
-#         reference_answer
-#     )
-
-#     # ============================================
-#     # VERDICT
-#     # ============================================
-
-#     verdict = evaluate_verdict(
-#         accuracy,
-#         relevance,
-#         hallucination,
-#         completeness
-#     )
-
-#     # ============================================
-#     # RETURN
-#     # ============================================
-
-#     return {
-
-#         "status": "success",
-
-#         "question": question,
-
-#         "ai_response": ai_response,
-
-#         "reference_answer": reference_answer,
-
-#         "category": category,
-
-#         "accuracy": accuracy,
-
-#         "relevance": relevance,
-
-#         "hallucination": hallucination,
-
-#         "completeness": completeness,
-
-#         "verdict": verdict
-#     }
-# @app.post("/batch_evaluate")
-# def batch_evaluate(data: BatchEvaluationRequest):
-
-#     # ============================================
-#     # FUNCTION TO EVALUATE ONE RESPONSE
-#     # ============================================
-
-#     def evaluate_one(item):
-
-#         # --------------------------------------------
-#         # Retrieve reference information
-#         # --------------------------------------------
-
-#         retrieved = retrieve(item.question)
-
-#         reference_answer = retrieved["reference_answer"]
-#         retrieved_question = retrieved["question"]
-#         category = retrieved["category"]
-
-#         # --------------------------------------------
-#         # Accuracy Agent
-#         # --------------------------------------------
-
-#         accuracy = evaluate_accuracy(
-#             retrieved_question,
-#             reference_answer,
-#             item.ai_response
-#         )
-
-#         # --------------------------------------------
-#         # Relevance Agent
-#         # --------------------------------------------
-
-#         relevance = evaluate_relevance(
-#             retrieved_question,
-#             reference_answer,
-#             item.ai_response
-#         )
-
-#         # --------------------------------------------
-#         # Hallucination Agent
-#         # --------------------------------------------
-
-#         hallucination = evaluate_hallucination(
-#             retrieved_question,
-#             reference_answer,
-#             item.ai_response
-#         )
-
-#         # --------------------------------------------
-#         # Completeness Agent
-#         # --------------------------------------------
-
-#         completeness = evaluate_completeness(
-#             item.question,
-#             item.ai_response,
-#             reference_answer
-#         )
-
-#         # --------------------------------------------
-#         # Verdict Agent
-#         # --------------------------------------------
-
-#         verdict = evaluate_verdict(
-#             accuracy,
-#             relevance,
-#             hallucination,
-#             completeness
-#         )
-
-#         # --------------------------------------------
-#         # Return result
-#         # --------------------------------------------
-
-#         return {
-#             "question": item.question,
-#             "ai_response": item.ai_response,
-#             "reference_answer": reference_answer,
-#             "category": category,
-#             "accuracy": accuracy,
-#             "relevance": relevance,
-#             "hallucination": hallucination,
-#             "completeness": completeness,
-#             "verdict": verdict
-#         }
-
-
-#     # ============================================
-#     # PARALLEL BATCH PROCESSING
-#     # ============================================
-
-#     results = []
-
-#     # Maximum 4 responses evaluated simultaneously
-#     with ThreadPoolExecutor(max_workers=4) as executor:
-
-#         results = list(
-#             executor.map(
-#                 evaluate_one,
-#                 data.evaluations
-#             )
-#         )
-
-
-#     # ============================================
-#     # RETURN RESPONSE
-#     # ============================================
-
-#     return {
-#         "status": "success",
-#         "total_records": len(results),
-#         "results": results
-#     }
-# # @app.post("/batch_evaluate")
-# # def batch_evaluate(data: BatchEvaluationRequest):
-
-# #     results = []
-
-# #     for item in data.evaluations:
-
-# #         # Retrieve reference information
-# #         retrieved = retrieve(item.question)
-
-# #         reference_answer = retrieved["reference_answer"]
-# #         retrieved_question = retrieved["question"]
-# #         category = retrieved["category"]
-
-# #         # Run Accuracy Agent
-# #         accuracy = evaluate_accuracy(
-# #             retrieved_question,
-# #             reference_answer,
-# #             item.ai_response
-# #         )
-
-# #         # Run Relevance Agent
-# #         relevance = evaluate_relevance(
-# #             retrieved_question,
-# #             reference_answer,
-# #             item.ai_response
-# #         )
-
-# #         # Run Hallucination Agent
-# #         hallucination = evaluate_hallucination(
-# #             retrieved_question,
-# #             reference_answer,
-# #             item.ai_response
-# #         )
-
-# #         # Run Completeness Agent
-# #         completeness = evaluate_completeness(
-# #             item.question,
-# #             item.ai_response,
-# #             reference_answer
-# #         )
-
-# #         # Run Verdict Agent
-# #         verdict = evaluate_verdict(
-# #             accuracy,
-# #             relevance,
-# #             hallucination,
-# #             completeness
-# #         )
-
-# #         # Store result
-# #         results.append({
-# #             "question": item.question,
-# #             "ai_response": item.ai_response,
-# #             "reference_answer": reference_answer,
-# #             "category": category,
-# #             "accuracy": accuracy,
-# #             "relevance": relevance,
-# #             "hallucination": hallucination,
-# #             "completeness": completeness,
-# #             "verdict": verdict
-# #         })
-
-# #     return {
-# #         "status": "success",
-# #         "total_records": len(results),
-# #         "results": results
-# #     }
+import time
 from pypdf import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -519,77 +93,6 @@ def chunk_text(text, chunk_size=500, overlap=100):
         start += chunk_size - overlap
 
     return chunks
-
-
-# ============================================================
-# RETRIEVE REFERENCE FROM PDF
-# ============================================================
-
-# def retrieve_from_pdf(question, pdf_file):
-
-#     print("\nProcessing uploaded PDF...")
-
-#     # Extract PDF text
-#     text = extract_pdf_text(pdf_file)
-#     import re
-#     text = re.sub(r'\s+', ' ', text).strip()
-#     if not text.strip():
-#         raise ValueError(
-#             "The uploaded PDF does not contain readable text."
-#         )
-
-#     print("PDF text extracted.")
-
-#     # Create chunks
-#     chunks = chunk_text(text)
-
-#     print("Total PDF chunks:", len(chunks))
-
-#     if not chunks:
-#         raise ValueError(
-#             "No readable content was found in the PDF."
-#         )
-
-#     # Generate embeddings
-#     chunk_embeddings = pdf_embedding_model.encode(
-#         chunks,
-#         normalize_embeddings=True
-#     )
-
-#     # Question embedding
-#     question_embedding = pdf_embedding_model.encode(
-#         question,
-#         normalize_embeddings=True
-#     )
-
-#     # Cosine similarity
-#     similarities = np.dot(
-#         chunk_embeddings,
-#         question_embedding
-#     )
-
-#     # Best matching chunk
-#     best_index = int(np.argmax(similarities))
-
-#     best_chunk = chunks[best_index]
-
-#     best_score = float(similarities[best_index])
-
-#     print("\n========== PDF RETRIEVAL ==========")
-
-#     print("Question:", question)
-
-#     print("Similarity:", best_score)
-
-#     print("Reference:", best_chunk)
-
-#     print("-" * 60)
-
-#     return {
-#         "reference_answer": best_chunk,
-#         "question": question,
-#         "category": "Uploaded PDF"
-#     }
 # ============================================================
 # RETRIEVE REFERENCE FROM PDF
 # ============================================================
@@ -841,97 +344,233 @@ async def evaluate(
 # ============================================================
 # BATCH EVALUATION
 # ============================================================
+# ============================================================
+# BATCH EVALUATION
+# ============================================================
+
+def call_with_retry(function, *args, max_retries=3):
+
+    for attempt in range(max_retries):
+
+        try:
+            result = function(*args)
+
+            # Small delay between Groq requests
+            time.sleep(2)
+
+            return result
+
+        except Exception as e:
+
+            error_message = str(e)
+
+            # Handle Groq rate limit
+            if "429" in error_message or "RateLimitError" in error_message:
+
+                wait_time = 5 * (attempt + 1)
+
+                print(
+                    f"Groq rate limit reached. "
+                    f"Retrying in {wait_time} seconds..."
+                )
+
+                time.sleep(wait_time)
+
+            else:
+                raise
+
+    raise Exception(
+        "Groq rate limit exceeded after multiple retries."
+    )
+
 
 @app.post("/batch_evaluate")
 def batch_evaluate(data: BatchEvaluationRequest):
 
+    results = []
 
     # ========================================================
-    # FUNCTION TO EVALUATE ONE RESPONSE
+    # SEQUENTIAL BATCH PROCESSING
+    # ========================================================
+    #
+    # IMPORTANT:
+    # Do NOT use ThreadPoolExecutor here.
+    #
+    # Each CSV row uses 5 judge agents.
+    # Processing sequentially prevents too many
+    # Groq requests from being sent simultaneously.
     # ========================================================
 
-    def evaluate_one(item):
+    for index, item in enumerate(data.evaluations):
 
-        retrieved = retrieve(item.question)
-
-        reference_answer = retrieved["reference_answer"]
-
-        retrieved_question = retrieved["question"]
-
-        category = retrieved["category"]
-
-
-        accuracy = evaluate_accuracy(
-            retrieved_question,
-            reference_answer,
-            item.ai_response
+        print(
+            f"===== Evaluating row {index + 1} "
+            f"of {len(data.evaluations)} ====="
         )
 
+        try:
 
-        relevance = evaluate_relevance(
-            retrieved_question,
-            reference_answer,
-            item.ai_response
-        )
+            # ------------------------------------------------
+            # RETRIEVAL
+            # ------------------------------------------------
 
+            retrieved = retrieve(item.question)
 
-        hallucination = evaluate_hallucination(
-            retrieved_question,
-            reference_answer,
-            item.ai_response
-        )
+            reference_answer = retrieved["reference_answer"]
 
+            retrieved_question = retrieved["question"]
 
-        completeness = evaluate_completeness(
-            item.question,
-            item.ai_response,
-            reference_answer
-        )
+            category = retrieved["category"]
 
 
-        verdict = evaluate_verdict(
-            accuracy,
-            relevance,
-            hallucination,
-            completeness
-        )
+            # ------------------------------------------------
+            # ACCURACY
+            # ------------------------------------------------
 
-
-        return {
-
-            "question": item.question,
-
-            "ai_response": item.ai_response,
-
-            "reference_answer": reference_answer,
-
-            "category": category,
-
-            "accuracy": accuracy,
-
-            "relevance": relevance,
-
-            "hallucination": hallucination,
-
-            "completeness": completeness,
-
-            "verdict": verdict
-        }
-
-
-    # ========================================================
-    # PARALLEL PROCESSING
-    # ========================================================
-
-    with ThreadPoolExecutor(max_workers=4) as executor:
-
-        results = list(
-            executor.map(
-                evaluate_one,
-                data.evaluations
+            accuracy = call_with_retry(
+                evaluate_accuracy,
+                retrieved_question,
+                reference_answer,
+                item.ai_response
             )
-        )
 
+
+            # ------------------------------------------------
+            # RELEVANCE
+            # ------------------------------------------------
+
+            relevance = call_with_retry(
+                evaluate_relevance,
+                retrieved_question,
+                reference_answer,
+                item.ai_response
+            )
+
+
+            # ------------------------------------------------
+            # HALLUCINATION
+            # ------------------------------------------------
+
+            hallucination = call_with_retry(
+                evaluate_hallucination,
+                retrieved_question,
+                reference_answer,
+                item.ai_response
+            )
+
+
+            # ------------------------------------------------
+            # COMPLETENESS
+            # ------------------------------------------------
+
+            completeness = call_with_retry(
+                evaluate_completeness,
+                item.question,
+                item.ai_response,
+                reference_answer
+            )
+
+
+            # ------------------------------------------------
+            # VERDICT
+            # ------------------------------------------------
+
+            verdict = call_with_retry(
+                evaluate_verdict,
+                accuracy,
+                relevance,
+                hallucination,
+                completeness
+            )
+
+
+            # ------------------------------------------------
+            # RESULT
+            # ------------------------------------------------
+
+            results.append({
+
+                "question": item.question,
+
+                "ai_response": item.ai_response,
+
+                "reference_answer": reference_answer,
+
+                "category": category,
+
+                "accuracy": accuracy,
+
+                "relevance": relevance,
+
+                "hallucination": hallucination,
+
+                "completeness": completeness,
+
+                "verdict": verdict
+            })
+
+
+            print(
+                f"===== Row {index + 1} completed successfully ====="
+            )
+
+
+        except Exception as e:
+
+            print(
+                f"===== Row {index + 1} FAILED ====="
+            )
+
+            print(str(e))
+
+            # Keep the batch going instead of failing
+            # the entire CSV.
+
+            results.append({
+
+                "question": item.question,
+
+                "ai_response": item.ai_response,
+
+                "reference_answer": "",
+
+                "category": "",
+
+                "accuracy": {
+                    "agent": "Accuracy",
+                    "score": 0,
+                    "reason": "Evaluation failed."
+                },
+
+                "relevance": {
+                    "agent": "Relevance",
+                    "score": 0,
+                    "reason": "Evaluation failed."
+                },
+
+                "hallucination": {
+                    "agent": "Hallucination",
+                    "score": 0,
+                    "reason": "Evaluation failed."
+                },
+
+                "completeness": {
+                    "agent": "Completeness",
+                    "score": 0,
+                    "reason": "Evaluation failed."
+                },
+
+                "verdict": {
+                    "overall_score": 0,
+                    "verdict": "Error",
+                    "summary": str(e)
+                }
+            })
+
+
+    # ========================================================
+    # FINAL RESPONSE
+    # ========================================================
 
     return {
 
@@ -941,3 +580,102 @@ def batch_evaluate(data: BatchEvaluationRequest):
 
         "results": results
     }
+# @app.post("/batch_evaluate")
+# def batch_evaluate(data: BatchEvaluationRequest):
+
+
+#     # ========================================================
+#     # FUNCTION TO EVALUATE ONE RESPONSE
+#     # ========================================================
+
+#     def evaluate_one(item):
+
+#         retrieved = retrieve(item.question)
+
+#         reference_answer = retrieved["reference_answer"]
+
+#         retrieved_question = retrieved["question"]
+
+#         category = retrieved["category"]
+
+
+#         accuracy = evaluate_accuracy(
+#             retrieved_question,
+#             reference_answer,
+#             item.ai_response
+#         )
+
+
+#         relevance = evaluate_relevance(
+#             retrieved_question,
+#             reference_answer,
+#             item.ai_response
+#         )
+
+
+#         hallucination = evaluate_hallucination(
+#             retrieved_question,
+#             reference_answer,
+#             item.ai_response
+#         )
+
+
+#         completeness = evaluate_completeness(
+#             item.question,
+#             item.ai_response,
+#             reference_answer
+#         )
+
+
+#         verdict = evaluate_verdict(
+#             accuracy,
+#             relevance,
+#             hallucination,
+#             completeness
+#         )
+
+
+#         return {
+
+#             "question": item.question,
+
+#             "ai_response": item.ai_response,
+
+#             "reference_answer": reference_answer,
+
+#             "category": category,
+
+#             "accuracy": accuracy,
+
+#             "relevance": relevance,
+
+#             "hallucination": hallucination,
+
+#             "completeness": completeness,
+
+#             "verdict": verdict
+#         }
+
+
+#     # ========================================================
+#     # PARALLEL PROCESSING
+#     # ========================================================
+
+#     with ThreadPoolExecutor(max_workers=4) as executor:
+
+#         results = list(
+#             executor.map(
+#                 evaluate_one,
+#                 data.evaluations
+#             )
+#         )
+
+
+#     return {
+
+#         "status": "success",
+
+#         "total_records": len(results),
+
+#         "results": results
+#     }
