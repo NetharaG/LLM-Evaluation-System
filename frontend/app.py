@@ -13,7 +13,11 @@ from reportlab.platypus import (
 )
 import sys
 import os
-BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+# BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+BACKEND_URL = os.getenv(
+    "BACKEND_URL",
+    "https://llm-evaluation-system-backend.onrender.com"
+)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from reports.pdf_report import generate_pdf
 from reportlab.lib import colors
