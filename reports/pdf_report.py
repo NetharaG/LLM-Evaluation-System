@@ -1032,61 +1032,86 @@
 
 import os
 from datetime import datetime
-from io import BytesIO
+
+import matplotlib
+matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import pandas as pd
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import (
+    getSampleStyleSheet,
+    ParagraphStyle
+)
+from reportlab.lib.units import inch
 
 from reportlab.platypus import (
     SimpleDocTemplate,
-    Table,
-    TableStyle,
     Paragraph,
     Spacer,
+    Table,
+    TableStyle,
     PageBreak,
-    Image,
+    Image
 )
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.units import inch
 
 
-# =========================================================
+# ============================================================
+# BASE DIRECTORY
+# ============================================================
+
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
+
+# ============================================================
 # GENERATE PDF
-# =========================================================
+# ============================================================
 
 def generate_pdf(result_df):
 
-    # =====================================================
-    # FILE LOCATION
-    # =====================================================
-
-    BASE_DIR = os.path.dirname(
-        os.path.abspath(__file__)
-    )
-
-    pdf_file = os.path.join(
-        BASE_DIR,
-        "LLM_Evaluation_Report.pdf"
-    )
-
-    # =====================================================
-    # CLEAN / COPY DATA
-    # =====================================================
+    # ========================================================
+    # COPY DATA
+    # ========================================================
 
     df = result_df.copy()
 
-    # Make sure verdict is always a clean string
+    # --------------------------------------------------------
+    # CLEAN VERDICT VALUES
+    # --------------------------------------------------------
+
     df["Verdict"] = (
         df["Verdict"]
         .astype(str)
         .str.strip()
     )
 
-    # =====================================================
-    # CALCULATE SUMMARY
-    # =====================================================
+    # --------------------------------------------------------
+    # CLEAN NUMERIC VALUES
+    # --------------------------------------------------------
+
+    numeric_columns = [
+        "Accuracy",
+        "Relevance",
+        "Hallucination",
+        "Completeness",
+        "Overall Score"
+    ]
+
+    for column in numeric_columns:
+
+        df[column] = pd.to_numeric(
+            df[column],
+            errors="coerce"
+        ).fillna(0)
+
+    # ========================================================
+    # SUMMARY
+    # ========================================================
 
     total = len(df)
 
@@ -1095,7 +1120,10 @@ def generate_pdf(result_df):
     )
 
     needs = int(
-        (df["Verdict"] == "Needs Improvement").sum()
+        (
+            df["Verdict"]
+            == "Needs Improvement"
+        ).sum()
     )
 
     failed = int(
@@ -1127,13 +1155,15 @@ def generate_pdf(result_df):
         2
     )
 
-    # =====================================================
-    # DEBUG
-    # =====================================================
+    # ========================================================
+    # DEBUG OUTPUT
+    # ========================================================
 
-    print("\n========================================")
+    print()
+    print("=" * 60)
     print("PDF REPORT - CURRENT DATA")
-    print("========================================")
+    print("=" * 60)
+
     print(
         df[
             [
@@ -1143,38 +1173,53 @@ def generate_pdf(result_df):
                 "Hallucination",
                 "Completeness",
                 "Overall Score",
-                "Verdict",
+                "Verdict"
             ]
         ].to_string(index=False)
     )
-    print("----------------------------------------")
-    print("Total:", total)
-    print("Pass:", passed)
-    print("Needs Improvement:", needs)
-    print("Fail:", failed)
-    print("Average Accuracy:", avg_accuracy)
-    print("Average Relevance:", avg_relevance)
-    print("Average Hallucination:", avg_hallucination)
-    print("Average Completeness:", avg_completeness)
-    print("Average Overall:", avg_overall)
-    print("========================================\n")
 
-    # =====================================================
-    # PDF DOCUMENT
-    # =====================================================
+    print("-" * 60)
+    print("TOTAL:", total)
+    print("PASS:", passed)
+    print("NEEDS IMPROVEMENT:", needs)
+    print("FAIL:", failed)
+    print("AVERAGE ACCURACY:", avg_accuracy)
+    print("AVERAGE RELEVANCE:", avg_relevance)
+    print("AVERAGE HALLUCINATION:", avg_hallucination)
+    print("AVERAGE COMPLETENESS:", avg_completeness)
+    print("AVERAGE OVERALL:", avg_overall)
+    print("=" * 60)
+    print()
 
-    doc = SimpleDocTemplate(
-        pdf_file,
-        pagesize=A4,
-        rightMargin=35,
-        leftMargin=35,
-        topMargin=35,
-        bottomMargin=35,
+    # ========================================================
+    # CREATE UNIQUE PDF NAME
+    # ========================================================
+
+    timestamp = datetime.now().strftime(
+        "%Y%m%d_%H%M%S"
     )
 
-    # =====================================================
+    pdf_path = os.path.join(
+        BASE_DIR,
+        f"LLM_Evaluation_Report_{timestamp}.pdf"
+    )
+
+    # ========================================================
+    # PDF DOCUMENT
+    # ========================================================
+
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=A4,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+
+    # ========================================================
     # STYLES
-    # =====================================================
+    # ========================================================
 
     styles = getSampleStyleSheet()
 
@@ -1184,8 +1229,10 @@ def generate_pdf(result_df):
         fontSize=24,
         leading=30,
         alignment=TA_CENTER,
-        textColor=colors.HexColor("#17365D"),
-        spaceAfter=20,
+        textColor=colors.HexColor(
+            "#17365D"
+        ),
+        spaceAfter=20
     )
 
     heading_style = ParagraphStyle(
@@ -1193,9 +1240,10 @@ def generate_pdf(result_df):
         parent=styles["Heading1"],
         fontSize=18,
         leading=22,
-        textColor=colors.HexColor("#17365D"),
-        spaceBefore=8,
-        spaceAfter=12,
+        textColor=colors.HexColor(
+            "#17365D"
+        ),
+        spaceAfter=15
     )
 
     normal_style = ParagraphStyle(
@@ -1203,21 +1251,21 @@ def generate_pdf(result_df):
         parent=styles["Normal"],
         fontSize=10,
         leading=15,
-        spaceAfter=8,
+        spaceAfter=8
     )
 
     small_style = ParagraphStyle(
         "Small",
         parent=styles["Normal"],
         fontSize=8,
-        leading=10,
+        leading=10
     )
 
     story = []
 
-    # =====================================================
+    # ========================================================
     # COVER PAGE
-    # =====================================================
+    # ========================================================
 
     story.append(
         Spacer(
@@ -1230,7 +1278,7 @@ def generate_pdf(result_df):
         Paragraph(
             "LLM RESPONSE QUALITY<br/>"
             "EVALUATION REPORT",
-            title_style,
+            title_style
         )
     )
 
@@ -1244,195 +1292,217 @@ def generate_pdf(result_df):
     cover_data = [
         [
             "Project",
-            "LLM Response Quality Evaluation System",
+            "LLM Response Quality Evaluation System"
         ],
         [
             "Evaluation Mode",
-            "Batch Evaluation",
+            "Batch Evaluation"
         ],
         [
             "Total Responses",
-            str(total),
+            str(total)
         ],
         [
             "Generated On",
             datetime.now().strftime(
                 "%d-%m-%Y %H:%M:%S"
-            ),
-        ],
+            )
+        ]
     ]
 
     cover_table = Table(
         cover_data,
         colWidths=[
-            1.7 * inch,
-            4.7 * inch,
-        ],
+            1.8 * inch,
+            4.8 * inch
+        ]
     )
 
     cover_table.setStyle(
-        TableStyle(
-            [
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (0, -1),
-                    colors.HexColor("#D9EAF7"),
-                ),
-                (
-                    "FONTNAME",
-                    (0, 0),
-                    (0, -1),
-                    "Helvetica-Bold",
-                ),
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    colors.grey,
-                ),
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    10,
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    10,
-                ),
-            ]
-        )
+        TableStyle([
+            (
+                "BACKGROUND",
+                (0, 0),
+                (0, -1),
+                colors.HexColor(
+                    "#D9EAF7"
+                )
+            ),
+            (
+                "FONTNAME",
+                (0, 0),
+                (0, -1),
+                "Helvetica-Bold"
+            ),
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "MIDDLE"
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                10
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                10
+            )
+        ])
     )
 
-    story.append(cover_table)
+    story.append(
+        cover_table
+    )
 
     story.append(
         Spacer(
             1,
-            0.6 * inch
+            0.4 * inch
         )
     )
 
     story.append(
         Paragraph(
-            "This report presents the automated evaluation "
-            "of AI-generated responses using Accuracy, "
-            "Relevance, Hallucination and Completeness "
+            "This report presents the automated "
+            "evaluation of AI-generated responses "
+            "using Accuracy, Relevance, "
+            "Hallucination and Completeness "
             "evaluation metrics.",
-            normal_style,
+            normal_style
         )
     )
 
-    story.append(PageBreak())
+    story.append(
+        PageBreak()
+    )
 
-    # =====================================================
+    # ========================================================
     # EXECUTIVE SUMMARY
-    # =====================================================
+    # ========================================================
 
     story.append(
         Paragraph(
             "Executive Summary",
-            heading_style,
+            heading_style
         )
     )
 
     summary_data = [
-        ["Metric", "Value"],
-        ["Total Evaluations", total],
-        ["Passed", passed],
-        ["Needs Improvement", needs],
-        ["Failed", failed],
-        ["Average Accuracy", avg_accuracy],
-        ["Average Relevance", avg_relevance],
+        [
+            "Metric",
+            "Value"
+        ],
+        [
+            "Total Evaluations",
+            total
+        ],
+        [
+            "Passed",
+            passed
+        ],
+        [
+            "Needs Improvement",
+            needs
+        ],
+        [
+            "Failed",
+            failed
+        ],
+        [
+            "Average Accuracy",
+            avg_accuracy
+        ],
+        [
+            "Average Relevance",
+            avg_relevance
+        ],
         [
             "Average Hallucination",
-            avg_hallucination,
+            avg_hallucination
         ],
         [
             "Average Completeness",
-            avg_completeness,
+            avg_completeness
         ],
         [
             "Average Overall Score",
-            avg_overall,
-        ],
+            avg_overall
+        ]
     ]
 
     summary_table = Table(
         summary_data,
         colWidths=[
             3.8 * inch,
-            2.0 * inch,
-        ],
+            2.0 * inch
+        ]
     )
 
     summary_table.setStyle(
-        TableStyle(
-            [
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, 0),
-                    colors.HexColor("#17365D"),
-                ),
-                (
-                    "TEXTCOLOR",
-                    (0, 0),
-                    (-1, 0),
-                    colors.white,
-                ),
-                (
-                    "FONTNAME",
-                    (0, 0),
-                    (-1, 0),
-                    "Helvetica-Bold",
-                ),
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    colors.grey,
-                ),
-                (
-                    "BACKGROUND",
-                    (0, 1),
-                    (-1, -1),
-                    colors.HexColor("#F4F7FA"),
-                ),
-                (
-                    "ALIGN",
-                    (1, 1),
-                    (1, -1),
-                    "CENTER",
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    7,
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    7,
-                ),
-            ]
-        )
+        TableStyle([
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                colors.HexColor(
+                    "#17365D"
+                )
+            ),
+            (
+                "TEXTCOLOR",
+                (0, 0),
+                (-1, 0),
+                colors.white
+            ),
+            (
+                "FONTNAME",
+                (0, 0),
+                (-1, 0),
+                "Helvetica-Bold"
+            ),
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "ALIGN",
+                (1, 1),
+                (1, -1),
+                "CENTER"
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                7
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                7
+            )
+        ])
     )
 
-    story.append(summary_table)
+    story.append(
+        summary_table
+    )
 
     story.append(
         Spacer(
@@ -1447,100 +1517,120 @@ def generate_pdf(result_df):
             The system evaluated <b>{total}</b>
             AI-generated responses.
 
-            A total of <b>{passed}</b> responses passed
-            the evaluation, <b>{needs}</b> required
-            improvement and <b>{failed}</b> failed.
+            A total of <b>{passed}</b> responses
+            passed the evaluation, <b>{needs}</b>
+            required improvement and
+            <b>{failed}</b> failed.
 
-            The average overall evaluation score was
-            <b>{avg_overall}</b>.
+            The average overall evaluation
+            score was <b>{avg_overall}</b>.
             """,
-            normal_style,
+            normal_style
         )
     )
 
-    story.append(PageBreak())
+    story.append(
+        PageBreak()
+    )
 
-    # =====================================================
+    # ========================================================
     # DASHBOARD VISUALIZATIONS
-    # =====================================================
+    # ========================================================
 
     story.append(
         Paragraph(
             "Dashboard Visualizations",
-            heading_style,
+            heading_style
         )
     )
 
-    # =====================================================
-    # 1. VERDICT DISTRIBUTION
-    # =====================================================
+    # ========================================================
+    # CHART 1
+    # VERDICT DISTRIBUTION
+    # ========================================================
 
-    verdict_order = [
+    verdict_names = [
         "Pass",
         "Needs Improvement",
-        "Fail",
+        "Fail"
     ]
 
-    verdict_counts = (
-        df["Verdict"]
-        .value_counts()
-        .reindex(
-            verdict_order,
-            fill_value=0,
-        )
-    )
+    verdict_values = [
+        passed,
+        needs,
+        failed
+    ]
 
-    fig, ax = plt.subplots(
+    fig1, ax1 = plt.subplots(
         figsize=(7, 4)
     )
 
-    ax.bar(
-        verdict_order,
-        verdict_counts.values,
+    bars1 = ax1.bar(
+        verdict_names,
+        verdict_values
     )
 
-    ax.set_title(
+    ax1.set_title(
         "Verdict Distribution"
     )
 
-    ax.set_xlabel(
+    ax1.set_xlabel(
         "Verdict"
     )
 
-    ax.set_ylabel(
+    ax1.set_ylabel(
         "Number of Responses"
     )
 
-    for i, value in enumerate(
-        verdict_counts.values
-    ):
-        ax.text(
-            i,
-            float(value) + 0.05,
-            str(int(value)),
-            ha="center",
-        )
-
-    plt.tight_layout()
-
-    buffer = BytesIO()
-
-    fig.savefig(
-        buffer,
-        format="png",
-        dpi=150,
-        bbox_inches="tight",
+    max_value = max(
+        verdict_values + [1]
     )
 
-    plt.close(fig)
+    ax1.set_ylim(
+        0,
+        max_value + 1
+    )
 
-    buffer.seek(0)
+    for bar, value in zip(
+        bars1,
+        verdict_values
+    ):
+
+        ax1.text(
+            bar.get_x()
+            + bar.get_width() / 2,
+            value + 0.05,
+            str(value),
+            ha="center"
+        )
+
+    fig1.tight_layout()
+
+    chart1 = os.path.join(
+        BASE_DIR,
+        "_chart1.png"
+    )
+
+    fig1.savefig(
+        chart1,
+        dpi=150,
+        bbox_inches="tight"
+    )
+
+    plt.close(fig1)
+
+    story.append(
+        Paragraph(
+            "<b>Verdict Distribution</b>",
+            normal_style
+        )
+    )
 
     story.append(
         Image(
-            buffer,
+            chart1,
             width=6.2 * inch,
-            height=3.0 * inch,
+            height=3.2 * inch
         )
     )
 
@@ -1551,149 +1641,183 @@ def generate_pdf(result_df):
         )
     )
 
-    # =====================================================
-    # 2. AVERAGE AGENT SCORES
-    # =====================================================
+    # ========================================================
+    # CHART 2
+    # AVERAGE AGENT SCORES
+    # ========================================================
 
     agent_names = [
         "Accuracy",
         "Relevance",
         "Hallucination",
-        "Completeness",
+        "Completeness"
     ]
 
-    average_scores = [
-        df["Accuracy"].mean(),
-        df["Relevance"].mean(),
-        df["Hallucination"].mean(),
-        df["Completeness"].mean(),
+    agent_values = [
+        avg_accuracy,
+        avg_relevance,
+        avg_hallucination,
+        avg_completeness
     ]
 
-    fig, ax = plt.subplots(
+    fig2, ax2 = plt.subplots(
         figsize=(7, 4)
     )
 
-    ax.bar(
+    bars2 = ax2.bar(
         agent_names,
-        average_scores,
+        agent_values
     )
 
-    ax.set_title(
+    ax2.set_title(
         "Average Agent Scores"
     )
 
-    ax.set_xlabel(
+    ax2.set_xlabel(
         "Agent"
     )
 
-    ax.set_ylabel(
+    ax2.set_ylabel(
         "Average Score"
     )
 
-    ax.set_ylim(
+    ax2.set_ylim(
         0,
         100
     )
 
-    for i, value in enumerate(
-        average_scores
+    for bar, value in zip(
+        bars2,
+        agent_values
     ):
-        ax.text(
-            i,
-            float(value) + 2,
+
+        ax2.text(
+            bar.get_x()
+            + bar.get_width() / 2,
+            min(
+                value + 2,
+                98
+            ),
             f"{value:.2f}",
-            ha="center",
+            ha="center"
         )
 
-    plt.tight_layout()
+    fig2.tight_layout()
 
-    buffer = BytesIO()
+    chart2 = os.path.join(
+        BASE_DIR,
+        "_chart2.png"
+    )
 
-    fig.savefig(
-        buffer,
-        format="png",
+    fig2.savefig(
+        chart2,
         dpi=150,
-        bbox_inches="tight",
+        bbox_inches="tight"
     )
 
-    plt.close(fig)
-
-    buffer.seek(0)
-
-    story.append(
-        Image(
-            buffer,
-            width=6.2 * inch,
-            height=3.0 * inch,
-        )
-    )
-
-    story.append(PageBreak())
-
-    # =====================================================
-    # 3. HALLUCINATION SCORES
-    # =====================================================
+    plt.close(fig2)
 
     story.append(
         Paragraph(
-            "Hallucination Frequency",
-            heading_style,
+            "<b>Average Agent Scores</b>",
+            normal_style
         )
     )
-
-    evaluations = list(
-        range(
-            1,
-            len(df) + 1,
-        )
-    )
-
-    fig, ax = plt.subplots(
-        figsize=(7, 4)
-    )
-
-    ax.bar(
-        evaluations,
-        df["Hallucination"],
-    )
-
-    ax.set_title(
-        "Hallucination Scores"
-    )
-
-    ax.set_xlabel(
-        "Evaluation"
-    )
-
-    ax.set_ylabel(
-        "Score"
-    )
-
-    ax.set_ylim(
-        0,
-        100,
-    )
-
-    plt.tight_layout()
-
-    buffer = BytesIO()
-
-    fig.savefig(
-        buffer,
-        format="png",
-        dpi=150,
-        bbox_inches="tight",
-    )
-
-    plt.close(fig)
-
-    buffer.seek(0)
 
     story.append(
         Image(
-            buffer,
+            chart2,
             width=6.2 * inch,
-            height=3.0 * inch,
+            height=3.2 * inch
+        )
+    )
+
+    story.append(
+        PageBreak()
+    )
+
+    # ========================================================
+    # CHART 3
+    # HALLUCINATION FREQUENCY
+    # ========================================================
+
+    hallucination_found = int(
+        (
+            df["Hallucination"] < 100
+        ).sum()
+    )
+
+    no_hallucination = (
+        total - hallucination_found
+    )
+
+    fig3, ax3 = plt.subplots(
+        figsize=(6, 4)
+    )
+
+    pie_values = [
+        no_hallucination,
+        hallucination_found
+    ]
+
+    pie_labels = [
+        "No Hallucination",
+        "Hallucination Found"
+    ]
+
+    # If all values are zero, avoid invalid pie chart
+    if sum(pie_values) == 0:
+
+        ax3.text(
+            0.5,
+            0.5,
+            "No data available",
+            ha="center",
+            va="center"
+        )
+
+        ax3.axis("off")
+
+    else:
+
+        ax3.pie(
+            pie_values,
+            labels=pie_labels,
+            autopct="%1.0f%%",
+            startangle=90
+        )
+
+    ax3.set_title(
+        "Hallucination Frequency"
+    )
+
+    fig3.tight_layout()
+
+    chart3 = os.path.join(
+        BASE_DIR,
+        "_chart3.png"
+    )
+
+    fig3.savefig(
+        chart3,
+        dpi=150,
+        bbox_inches="tight"
+    )
+
+    plt.close(fig3)
+
+    story.append(
+        Paragraph(
+            "<b>Hallucination Frequency</b>",
+            normal_style
+        )
+    )
+
+    story.append(
+        Image(
+            chart3,
+            width=6.2 * inch,
+            height=3.3 * inch
         )
     )
 
@@ -1704,81 +1828,102 @@ def generate_pdf(result_df):
         )
     )
 
-    # =====================================================
-    # 4. QUALITY TREND
-    # =====================================================
+    # ========================================================
+    # CHART 4
+    # QUALITY TREND
+    # ========================================================
 
-    story.append(
-        Paragraph(
-            "Quality Trend",
-            heading_style,
+    evaluations = list(
+        range(
+            1,
+            total + 1
         )
     )
 
-    fig, ax = plt.subplots(
+    overall_values = list(
+        df["Overall Score"]
+    )
+
+    fig4, ax4 = plt.subplots(
         figsize=(7, 4)
     )
 
-    ax.plot(
-        evaluations,
-        df["Overall Score"],
-        marker="o",
-    )
+    if len(overall_values) > 0:
 
-    ax.set_title(
+        ax4.plot(
+            evaluations,
+            overall_values,
+            marker="o"
+        )
+
+    ax4.set_title(
         "Quality Trend"
     )
 
-    ax.set_xlabel(
+    ax4.set_xlabel(
         "Evaluation"
     )
 
-    ax.set_ylabel(
+    ax4.set_ylabel(
         "Overall Score"
     )
 
-    ax.set_ylim(
+    ax4.set_ylim(
         0,
-        100,
+        100
     )
 
-    plt.tight_layout()
+    ax4.grid(
+        True,
+        alpha=0.3
+    )
 
-    buffer = BytesIO()
+    fig4.tight_layout()
 
-    fig.savefig(
-        buffer,
-        format="png",
+    chart4 = os.path.join(
+        BASE_DIR,
+        "_chart4.png"
+    )
+
+    fig4.savefig(
+        chart4,
         dpi=150,
-        bbox_inches="tight",
+        bbox_inches="tight"
     )
 
-    plt.close(fig)
-
-    buffer.seek(0)
+    plt.close(fig4)
 
     story.append(
-        Image(
-            buffer,
-            width=6.2 * inch,
-            height=3.0 * inch,
+        Paragraph(
+            "<b>Quality Trend</b>",
+            normal_style
         )
     )
 
-    story.append(PageBreak())
+    story.append(
+        Image(
+            chart4,
+            width=6.2 * inch,
+            height=3.3 * inch
+        )
+    )
 
-    # =====================================================
+    story.append(
+        PageBreak()
+    )
+
+    # ========================================================
     # INDIVIDUAL EVALUATION RESULTS
-    # =====================================================
+    # ========================================================
 
     story.append(
         Paragraph(
             "Individual Evaluation Results",
-            heading_style,
+            heading_style
         )
     )
 
-    data = [
+    result_data = [
         [
             "Question",
             "Acc",
@@ -1786,7 +1931,7 @@ def generate_pdf(result_df):
             "Hall",
             "Comp",
             "Overall",
-            "Verdict",
+            "Verdict"
         ]
     ]
 
@@ -1797,31 +1942,30 @@ def generate_pdf(result_df):
         )
 
         if len(question) > 42:
+
             question = (
                 question[:42]
                 + "..."
             )
 
-        data.append(
-            [
-                Paragraph(
-                    question,
-                    small_style,
-                ),
-                row["Accuracy"],
-                row["Relevance"],
-                row["Hallucination"],
-                row["Completeness"],
-                row["Overall Score"],
-                Paragraph(
-                    str(row["Verdict"]),
-                    small_style,
-                ),
-            ]
-        )
+        result_data.append([
+            Paragraph(
+                question,
+                small_style
+            ),
+            row["Accuracy"],
+            row["Relevance"],
+            row["Hallucination"],
+            row["Completeness"],
+            row["Overall Score"],
+            Paragraph(
+                str(row["Verdict"]),
+                small_style
+            )
+        ])
 
     result_table = Table(
-        data,
+        result_data,
         colWidths=[
             2.55 * inch,
             0.48 * inch,
@@ -1829,107 +1973,96 @@ def generate_pdf(result_df):
             0.48 * inch,
             0.48 * inch,
             0.62 * inch,
-            1.05 * inch,
+            1.05 * inch
         ],
-        repeatRows=1,
+        repeatRows=1
     )
 
     result_table.setStyle(
-        TableStyle(
-            [
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, 0),
-                    colors.HexColor("#17365D"),
-                ),
-                (
-                    "TEXTCOLOR",
-                    (0, 0),
-                    (-1, 0),
-                    colors.white,
-                ),
-                (
-                    "FONTNAME",
-                    (0, 0),
-                    (-1, 0),
-                    "Helvetica-Bold",
-                ),
-                (
-                    "FONTSIZE",
-                    (0, 0),
-                    (-1, -1),
-                    7.5,
-                ),
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    colors.grey,
-                ),
-                (
-                    "BACKGROUND",
-                    (0, 1),
-                    (-1, -1),
-                    colors.HexColor("#F8F9FA"),
-                ),
-                (
-                    "ALIGN",
-                    (1, 0),
-                    (-1, -1),
-                    "CENTER",
-                ),
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5,
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    5,
-                ),
-            ]
-        )
+        TableStyle([
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                colors.HexColor(
+                    "#17365D"
+                )
+            ),
+            (
+                "TEXTCOLOR",
+                (0, 0),
+                (-1, 0),
+                colors.white
+            ),
+            (
+                "FONTNAME",
+                (0, 0),
+                (-1, 0),
+                "Helvetica-Bold"
+            ),
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.grey
+            ),
+            (
+                "ALIGN",
+                (1, 1),
+                (-1, -1),
+                "CENTER"
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "MIDDLE"
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                5
+            )
+        ])
     )
 
     story.append(
         result_table
     )
 
-    story.append(PageBreak())
+    story.append(
+        PageBreak()
+    )
 
-    # =====================================================
+    # ========================================================
     # FLAGGED RESPONSES
-    # =====================================================
+    # ========================================================
 
     story.append(
         Paragraph(
             "Flagged Responses",
-            heading_style,
+            heading_style
         )
     )
 
     flagged = df[
-        df["Overall Score"] < 80
+        df["Verdict"] != "Pass"
     ]
 
     if len(flagged) == 0:
 
         story.append(
             Paragraph(
-                "No responses were flagged "
-                "for improvement.",
-                normal_style,
+                "No responses were flagged.",
+                normal_style
             )
         )
 
@@ -1937,15 +2070,11 @@ def generate_pdf(result_df):
 
         for _, row in flagged.iterrows():
 
-            question = str(
-                row["Question"]
-            )
-
             story.append(
                 Paragraph(
                     f"<b>Question:</b> "
-                    f"{question}",
-                    normal_style,
+                    f"{str(row['Question'])}",
+                    normal_style
                 )
             )
 
@@ -1953,7 +2082,7 @@ def generate_pdf(result_df):
                 Paragraph(
                     f"<b>Overall Score:</b> "
                     f"{row['Overall Score']}",
-                    normal_style,
+                    normal_style
                 )
             )
 
@@ -1961,7 +2090,7 @@ def generate_pdf(result_df):
                 Paragraph(
                     f"<b>Verdict:</b> "
                     f"{row['Verdict']}",
-                    normal_style,
+                    normal_style
                 )
             )
 
@@ -1972,16 +2101,18 @@ def generate_pdf(result_df):
                 )
             )
 
-    story.append(PageBreak())
+    story.append(
+        PageBreak()
+    )
 
-    # =====================================================
-    # IMPROVEMENT RECOMMENDATIONS
-    # =====================================================
+    # ========================================================
+    # RECOMMENDATIONS
+    # ========================================================
 
     story.append(
         Paragraph(
             "Improvement Recommendations",
-            heading_style,
+            heading_style
         )
     )
 
@@ -1991,7 +2122,7 @@ def generate_pdf(result_df):
         "Improve completeness of generated answers.",
         "Validate responses using trusted reference information.",
         "Improve response accuracy for low-scoring questions.",
-        "Continue monitoring evaluation consistency.",
+        "Continue monitoring evaluation consistency."
     ]
 
     for recommendation in recommendations:
@@ -1999,7 +2130,7 @@ def generate_pdf(result_df):
         story.append(
             Paragraph(
                 "• " + recommendation,
-                normal_style,
+                normal_style
             )
         )
 
@@ -2010,73 +2141,102 @@ def generate_pdf(result_df):
         )
     )
 
-    # =====================================================
+    # ========================================================
     # CONCLUSION
-    # =====================================================
+    # ========================================================
 
     story.append(
         Paragraph(
             "Conclusion",
-            heading_style,
+            heading_style
         )
     )
-
-    conclusion = f"""
-    The LLM Response Quality Evaluation System
-    successfully evaluated <b>{total}</b>
-    AI-generated responses.
-
-    <br/><br/>
-
-    <b>Evaluation Summary</b>
-
-    <br/>
-    Passed: <b>{passed}</b>
-
-    <br/>
-    Needs Improvement: <b>{needs}</b>
-
-    <br/>
-    Failed: <b>{failed}</b>
-
-    <br/><br/>
-
-    Average Accuracy: <b>{avg_accuracy}</b>
-
-    <br/>
-    Average Relevance: <b>{avg_relevance}</b>
-
-    <br/>
-    Average Hallucination Score:
-    <b>{avg_hallucination}</b>
-
-    <br/>
-    Average Completeness:
-    <b>{avg_completeness}</b>
-
-    <br/>
-    Average Overall Score:
-    <b>{avg_overall}</b>
-
-    <br/><br/>
-
-    The system provides a structured approach
-    for evaluating AI responses using multiple
-    quality dimensions including Accuracy,
-    Relevance, Hallucination and Completeness.
-    """
 
     story.append(
         Paragraph(
-            conclusion,
-            normal_style,
+            f"""
+            The LLM Response Quality Evaluation System
+            successfully evaluated <b>{total}</b>
+            AI-generated responses.
+
+            <br/><br/>
+
+            <b>Evaluation Summary</b>
+
+            <br/>
+            Passed: <b>{passed}</b>
+
+            <br/>
+            Needs Improvement: <b>{needs}</b>
+
+            <br/>
+            Failed: <b>{failed}</b>
+
+            <br/><br/>
+
+            Average Accuracy:
+            <b>{avg_accuracy}</b>
+
+            <br/>
+            Average Relevance:
+            <b>{avg_relevance}</b>
+
+            <br/>
+            Average Hallucination:
+            <b>{avg_hallucination}</b>
+
+            <br/>
+            Average Completeness:
+            <b>{avg_completeness}</b>
+
+            <br/>
+            Average Overall Score:
+            <b>{avg_overall}</b>
+            """,
+            normal_style
         )
     )
 
-    # =====================================================
+    # ========================================================
     # BUILD PDF
-    # =====================================================
+    # ========================================================
 
-    doc.build(story)
+    doc.build(
+        story
+    )
 
-    return pdf_file
+    # ========================================================
+    # DELETE TEMPORARY CHARTS
+    # ========================================================
+
+    for chart_file in [
+        chart1,
+        chart2,
+        chart3,
+        chart4
+    ]:
+
+        try:
+
+            if os.path.exists(
+                chart_file
+            ):
+
+                os.remove(
+                    chart_file
+                )
+
+        except Exception:
+
+            pass
+
+    # ========================================================
+    # RETURN NEW PDF PATH
+    # ========================================================
+
+    print(
+        "PDF CREATED:",
+        pdf_path
+    )
+
+    return pdf_path
